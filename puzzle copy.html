@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Puzzle Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .puzzle-container {
+            display: grid;
+            gap: 2px;
+            border: 2px solid #333;
+        }
+        .puzzle-piece {
+            cursor: grab;
+            border: 1px solid #ccc;
+            background-repeat: no-repeat;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column align-items-center justify-content-center vh-100 bg-light p-4">
+    <h1 class="text-center mb-4">Image Puzzle Game</h1>
+    
+    <div class="card p-4 shadow-sm">
+        <div class="mb-3">
+            <input type="file" id="imageInput" accept="image/*" class="form-control">
+        </div>
+        <div class="mb-3">
+            <input type="text" id="message" placeholder="Enter your message" class="form-control">
+        </div>
+        <div class="mb-3">
+            <input type="number" id="gridSize" min="2" max="5" placeholder="Grid Size (e.g. 5 for 5x5)" class="form-control">
+        </div>
+        <button onclick="startGame()" class="btn btn-primary">Start Game</button>
+    </div>
+    
+    <div id="gameArea" class="mt-4 d-none">
+        <div class="d-flex justify-content-between w-100 max-w-400">
+            <p>Time: <span id="timer">0</span> sec</p>
+            <p>Score: <span id="score">0</span></p>
+        </div>
+        <div id="puzzleContainer" class="puzzle-container mt-3"></div>
+    </div>
+    
+    <p id="successMessage" class="text-success mt-3 fw-bold d-none"></p>
+    
+    <script>
+        let originalOrder = [];
+        let shuffledOrder = [];
+        let gridSize = 5;
+        let timer = 0;
+        let interval;
+        let score = 100;
+        let draggedElement = null;
+
+        function startGame() {
+            const fileInput = document.getElementById("imageInput").files[0];
+            const message = document.getElementById("message").value;
+            gridSize = parseInt(document.getElementById("gridSize").value) || 5;
+            if (!fileInput) { alert("Please upload an image!"); return; }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imageUrl = event.target.result;
+                setupPuzzle(imageUrl, message);
+            };
+            reader.readAsDataURL(fileInput);
+        }
+
+        function setupPuzzle(imageUrl, message) {
+            clearInterval(interval);
+            timer = 0;
+            score = 100;
+            document.getElementById("timer").textContent = timer;
+            document.getElementById("score").textContent = score;
+            document.getElementById("successMessage").classList.add("d-none");
+            document.getElementById("gameArea").classList.remove("d-none");
+            const puzzleContainer = document.getElementById("puzzleContainer");
+            puzzleContainer.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            puzzleContainer.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+            puzzleContainer.style.width = "400px";
+            puzzleContainer.style.height = "400px";
+            puzzleContainer.innerHTML = "";
+            originalOrder = [];
+            shuffledOrder = [];
+
+            let pieceSize = 400 / gridSize;
+
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    let index = row * gridSize + col;
+                    originalOrder.push(index);
+                    let piece = document.createElement("div");
+                    piece.classList.add("puzzle-piece");
+                    piece.style.width = pieceSize + "px";
+                    piece.style.height = pieceSize + "px";
+                    piece.style.backgroundImage = `url(${imageUrl})`;
+                    piece.style.backgroundPosition = `${-col * pieceSize}px ${-row * pieceSize}px`;
+                    piece.style.backgroundSize = "400px 400px";
+                    piece.draggable = true;
+                    piece.setAttribute("data-index", index);
+                    piece.addEventListener("dragstart", dragStart);
+                    piece.addEventListener("dragover", dragOver);
+                    piece.addEventListener("drop", drop);
+                    shuffledOrder.push(piece);
+                }
+            }
+            shuffledOrder.sort(() => Math.random() - 0.5);
+            shuffledOrder.forEach(piece => puzzleContainer.appendChild(piece));
+            interval = setInterval(() => {
+                timer++;
+                score = Math.max(0, 100 - timer);
+                document.getElementById("timer").textContent = timer;
+                document.getElementById("score").textContent = score;
+            }, 1000);
+        }
+
+        function dragStart(event) {
+            draggedElement = event.target;
+        }
+
+        function dragOver(event) {
+            event.preventDefault();
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            if (event.target.classList.contains("puzzle-piece")) {
+                let temp = document.createElement("div");
+                draggedElement.parentNode.insertBefore(temp, draggedElement);
+                event.target.parentNode.insertBefore(draggedElement, event.target);
+                temp.parentNode.insertBefore(event.target, temp);
+                temp.parentNode.removeChild(temp);
+                checkWin();
+            }
+        }
+
+        function checkWin() {
+            const pieces = document.querySelectorAll(".puzzle-piece");
+            let isCorrect = true;
+            pieces.forEach((piece, index) => {
+                if (parseInt(piece.getAttribute("data-index")) !== index) {
+                    isCorrect = false;
+                }
+            });
+            if (isCorrect) {
+                clearInterval(interval);
+                document.getElementById("successMessage").textContent = "Congratulations! You solved the puzzle!";
+                document.getElementById("successMessage").classList.remove("d-none");
+            }
+        }
+    </script>
+</body>
+</html>
